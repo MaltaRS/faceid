@@ -1,14 +1,16 @@
-// API para consulta de enriquecimento via Idwall v3
 "use client";
 
 import { useState } from "react";
+import type { JSX } from "react"; // ✅ Importação necessária para usar JSX.Element como tipo
 
 export default function ValidadorIdwallPage() {
   const [cpf, setCpf] = useState("");
   const [nome, setNome] = useState("");
   const [dataNascimento, setDataNascimento] = useState("");
-  const [mensagem, setMensagem] = useState("");
+  const [mensagem, setMensagem] = useState<JSX.Element | string>("");
   const [carregando, setCarregando] = useState(false);
+
+  const normalizarTexto = (texto: string) => texto?.toLowerCase().replace(/[^a-z0-9]/gi, "").trim();
 
   const validarDados = async () => {
     setCarregando(true);
@@ -20,47 +22,65 @@ export default function ValidadorIdwallPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          nome,
-          cpf,
-          dataNascimento, // formato ISO: YYYY-MM-DD vindo do input type="date"
-        }),
+        body: JSON.stringify({ nome, cpf, dataNascimento }),
       });
 
       const data = await resposta.json();
 
       if (resposta.ok) {
-        const enriched = data.enrichment?.data?.profileSourcesData?.[0]?.sourceData;
+        const enriched = data.fonteCompleta;
+        const validacoes = data.validacoes || [];
+        const aprovado = data.kycAprovado;
 
         if (enriched) {
-          setMensagem(
-            `✅ ${data.mensagem}
+          const cards = [
+            { label: "Nome", value: enriched.personal?.name },
+            { label: "CPF", value: enriched.personal?.cpfNumber },
+            { label: "Nascimento", value: enriched.personal?.birthDate },
+            { label: "Renda", value: enriched.personal?.income },
+            { label: "Situação IR", value: enriched.personal?.incomeTaxSituation },
+            { label: "PEP", value: enriched.personal?.pep ? "Sim" : "Não" },
+          ];
 
-📋 Dados retornados:
-Nome: ${enriched.personal?.name || "-"}
-CPF: ${enriched.personal?.cpfNumber || "-"}
-Nascimento: ${enriched.personal?.birthDate || "-"}
-Renda: ${enriched.personal?.income || "-"}
-Situação IR: ${enriched.personal?.incomeTaxSituation || "-"}
-PEP: ${enriched.personal?.pep ? "Sim" : "Não"}`
+          setMensagem(
+            <div>
+              <h2 className={`text-xl font-bold mb-4 ${aprovado ? "text-green-400" : "text-yellow-400"}`}>
+                {aprovado ? "✅ Aprovado no KYC" : "⚠️ Divergência Encontrada"}
+              </h2>
+              {validacoes.length > 0 && (
+                <ul className="list-disc list-inside mb-4">
+                  {validacoes.map((v: string, i: number) => (
+                    <li key={i}>{v}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cards.map((card, idx) => (
+                  <div key={idx} className="bg-gray-800 p-4 rounded border border-gray-700">
+                    <p className="font-bold text-gray-300">{card.label}</p>
+                    <p className="text-white">{card.value || "-"}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           );
         } else {
           setMensagem(
-            `✅ ${data.mensagem}
-
-📋 Nenhum dado encontrado no enrichment.`
+            <div className="text-green-400">✅ {data.mensagem}<br />📋 Nenhum dado encontrado no enrichment.</div>
           );
         }
       } else {
         setMensagem(
-          `❌ Erro: ${data.mensagem}
+          <pre className="text-red-400 whitespace-pre-wrap">
+❌ Erro: {data.mensagem}
 
 📋 Detalhes:
-${JSON.stringify(data.detalhes || {}, null, 2)}`
+{JSON.stringify(data.detalhes || {}, null, 2)}
+          </pre>
         );
       }
     } catch (error) {
-      setMensagem("❌ Erro na conexão com o servidor.");
+      setMensagem(<span className="text-red-400">❌ Erro na conexão com o servidor.</span>);
     } finally {
       setCarregando(false);
     }
@@ -105,9 +125,9 @@ ${JSON.stringify(data.detalhes || {}, null, 2)}`
       </button>
 
       {mensagem && (
-        <pre className="mt-6 text-sm text-gray-200 whitespace-pre-wrap max-w-2xl text-left bg-gray-800 p-4 rounded-md border border-gray-700">
+        <div className="mt-6 text-sm text-gray-200 max-w-2xl text-left">
           {mensagem}
-        </pre>
+        </div>
       )}
     </div>
   );
