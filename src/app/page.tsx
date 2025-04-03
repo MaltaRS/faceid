@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { JSX } from "react"; // ✅ Importação necessária para usar JSX.Element como tipo
+import type { JSX } from "react"; // ✅ Importação necessária
 
 export default function ValidadorIdwallPage() {
   const [cpf, setCpf] = useState("");
@@ -9,8 +9,6 @@ export default function ValidadorIdwallPage() {
   const [dataNascimento, setDataNascimento] = useState("");
   const [mensagem, setMensagem] = useState<JSX.Element | string>("");
   const [carregando, setCarregando] = useState(false);
-
-  const normalizarTexto = (texto: string) => texto?.toLowerCase().replace(/[^a-z0-9]/gi, "").trim();
 
   const validarDados = async () => {
     setCarregando(true);
@@ -26,20 +24,22 @@ export default function ValidadorIdwallPage() {
       });
 
       const data = await resposta.json();
+      console.log("📥 Resposta completa recebida:", data);
 
       if (resposta.ok) {
         const enriched = data.fonteCompleta;
         const validacoes = data.validacoes || [];
         const aprovado = data.kycAprovado;
+        const logs = data.logs || [];
 
-        if (enriched) {
+        if (enriched && enriched.personal) {
           const cards = [
-            { label: "Nome", value: enriched.personal?.name },
-            { label: "CPF", value: enriched.personal?.cpfNumber },
-            { label: "Nascimento", value: enriched.personal?.birthDate },
-            { label: "Renda", value: enriched.personal?.income },
-            { label: "Situação IR", value: enriched.personal?.incomeTaxSituation },
-            { label: "PEP", value: enriched.personal?.pep ? "Sim" : "Não" },
+            { label: "Nome", value: enriched.personal.name },
+            { label: "CPF", value: enriched.personal.cpfNumber },
+            { label: "Nascimento", value: enriched.personal.birthDate },
+            { label: "Renda", value: enriched.personal.income },
+            { label: "Situação IR", value: enriched.personal.incomeTaxSituation },
+            { label: "PEP", value: enriched.personal.pep ? "Sim" : "Não" },
           ];
 
           setMensagem(
@@ -54,7 +54,7 @@ export default function ValidadorIdwallPage() {
                   ))}
                 </ul>
               )}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 {cards.map((card, idx) => (
                   <div key={idx} className="bg-gray-800 p-4 rounded border border-gray-700">
                     <p className="font-bold text-gray-300">{card.label}</p>
@@ -62,11 +62,28 @@ export default function ValidadorIdwallPage() {
                   </div>
                 ))}
               </div>
+              {logs.length > 0 && (
+                <div className="text-sm text-gray-400">
+                  <p className="font-semibold mb-1">📋 Logs do processo:</p>
+                  <ul className="list-disc list-inside">
+                    {logs.map((log: string, idx: number) => (
+                      <li key={idx}>{log}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           );
         } else {
           setMensagem(
-            <div className="text-green-400">✅ {data.mensagem}<br />📋 Nenhum dado encontrado no enrichment.</div>
+            <div className="text-yellow-400">
+              ⚠️ Nenhum dado de enriquecimento encontrado.
+              <br /> Verifique no dashboard se o fluxo foi concluído.
+              <br />
+              <button onClick={validarDados} className="mt-4 underline">
+                🔁 Tentar novamente
+              </button>
+            </div>
           );
         }
       } else {
