@@ -22,15 +22,12 @@ export default function ValidadorIdwallPage() {
       });
 
       const data = await resposta.json();
-      console.log("📥 Resposta completa recebida:", data);
-
       if (!resposta.ok) {
         setMensagem(
-          <pre className="text-red-400 whitespace-pre-wrap">
-❌ Erro: {data.mensagem}
-
-📋 Detalhes:
-{JSON.stringify(data.detalhes || {}, null, 2)}
+          <pre className="text-red-400 whitespace-pre-wrap bg-red-900/20 p-4 rounded border border-red-500">
+            ❌ Erro: {data.mensagem}
+            {"\n\n"}📋 Detalhes:
+            {JSON.stringify(data.detalhes || {}, null, 2)}
           </pre>
         );
         return;
@@ -45,33 +42,32 @@ export default function ValidadorIdwallPage() {
       const segmentos = data.segmentos || [];
 
       const badge = (texto: string, cor: string) => (
-        <span className={`inline-block px-2 py-1 text-xs rounded font-bold ${cor}`}>
+        <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${cor}`}>
           {texto}
         </span>
       );
 
       const statusCard = (
-        <div className="mb-4 space-y-2">
-          <p>
-            👤 Perfil: {badge(perfilCriado ? "Criado" : "Já existia", perfilCriado ? "bg-green-700" : "bg-yellow-600")}
-          </p>
-          <p>
-            📊 Enriquecimento: {badge(enriched ? "Encontrado" : "Não encontrado", enriched ? "bg-green-700" : "bg-yellow-600")}
-          </p>
-          <p>
-            🛡️ KYC Básico: {badge(statusKycBasico, statusKycBasico === "Aprovado" ? "bg-green-700" : "bg-yellow-600")}
-          </p>
+        <div className="mb-4 space-y-2 text-sm bg-gray-800/50 p-4 rounded border border-gray-700 shadow">
+          <div>
+            👤 Perfil: {badge(perfilCriado ? "Criado" : "Já existia", perfilCriado ? "bg-green-600" : "bg-yellow-600")}
+          </div>
+          <div>
+            📊 Enriquecimento: {badge(enriched ? "Encontrado" : "Não encontrado", enriched ? "bg-green-600" : "bg-yellow-600")}
+          </div>
+          <div>
+            🛡️ KYC Básico: {badge(statusKycBasico, statusKycBasico === "Aprovado" ? "bg-green-600" : "bg-yellow-600")}
+          </div>
           {segmentos.length > 0 && (
-  <p>
-    🎖️ Segmentos:{" "}
-    {segmentos.map((s: { id: string; name: string }) => (
-      <span key={s.id} className="inline-block mr-2 px-2 py-1 text-xs rounded bg-indigo-700">
-        {s.name}
-      </span>
-    ))}
-  </p>
-)}
-
+            <div className="flex flex-wrap gap-2 items-center">
+              🎖️ Segmentos:
+              {segmentos.map((s: { id: string; name: string }) => (
+                <span key={s.id} className="px-2 py-1 text-xs rounded bg-indigo-700 text-white font-bold">
+                  {s.name}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       );
 
@@ -88,35 +84,35 @@ export default function ValidadorIdwallPage() {
       ];
 
       setMensagem(
-        <div>
-          <h2 className={`text-xl font-bold mb-4 ${aprovado ? "text-green-400" : "text-yellow-400"}`}>
-  {aprovado ? "✅ Aprovado no KYC" : "⚠️ KYC ainda não aprovado"}
-</h2>
+        <div className="space-y-6">
+          <h2 className={`text-xl font-bold ${aprovado ? "text-green-400" : "text-yellow-400"}`}>
+            {aprovado ? "✅ Aprovado no KYC" : "⚠️ KYC ainda não aprovado"}
+          </h2>
 
           {statusCard}
 
           {validacoes.length > 0 && (
-            <ul className="list-disc list-inside mb-4">
+            <ul className="list-disc list-inside bg-gray-800/40 p-4 rounded border border-gray-700 text-sm">
               {validacoes.map((v: string, i: number) => (
                 <li key={i}>{v}</li>
               ))}
             </ul>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {cards.map((card, idx) => (
-              <div key={idx} className="bg-gray-800 p-4 rounded border border-gray-700">
-                <p className="font-bold text-gray-300">{card.label}</p>
-                <p className="text-white">{card.value || "-"}</p>
+              <div key={idx} className="bg-gray-800 p-4 rounded border border-gray-700 shadow-md">
+                <p className="text-gray-400 text-sm font-medium">{card.label}</p>
+                <p className="text-white font-semibold">{card.value || "-"}</p>
               </div>
             ))}
           </div>
 
           {logs.length > 0 && (
-            <div className="text-sm text-gray-400">
-              <p className="font-semibold mb-1">📋 Logs do processo:</p>
-              <ul className="list-disc list-inside">
-              {logs.map((log: string, idx: number) => (
+            <div className="text-sm text-gray-300 bg-gray-800/30 p-4 rounded border border-gray-700">
+              <p className="font-semibold mb-2">📋 Logs do processo:</p>
+              <ul className="list-disc list-inside space-y-1">
+                {logs.map((log: string, idx: number) => (
                   <li key={idx}>{log}</li>
                 ))}
               </ul>
@@ -126,51 +122,63 @@ export default function ValidadorIdwallPage() {
       );
     } catch (error) {
       console.error(error);
-      setMensagem(<span className="text-red-400">❌ Erro na conexão com o servidor.</span>);
+      setMensagem(
+        <span className="text-red-400 bg-red-900/20 p-4 rounded border border-red-500">
+          ❌ Erro na conexão com o servidor.
+        </span>
+      );
     } finally {
       setCarregando(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 px-4 py-10 text-white">
-      <h1 className="text-2xl font-bold mb-6 text-center">Consulta de CPF - API v3 (Idwall)</h1>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-950 px-4 py-12 text-white">
+      <div className="w-full max-w-2xl">
+        <h1 className="text-3xl font-bold mb-8 text-center text-indigo-400">
+          Validação de CPF – API Idwall v3
+        </h1>
 
-      <input
-        type="text"
-        placeholder="Nome completo"
-        value={nome}
-        onChange={(e) => setNome(e.target.value)}
-        className="border border-gray-300 px-3 py-2 mb-3 w-full max-w-md rounded text-black"
-      />
+        <div className="bg-gray-900 border border-gray-700 rounded p-6 shadow-md space-y-4">
+          <input
+            type="text"
+            placeholder="Nome completo"
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
 
-      <input
-        type="text"
-        placeholder="CPF (somente números)"
-        value={cpf}
-        onChange={(e) => setCpf(e.target.value)}
-        className="border border-gray-300 px-3 py-2 mb-3 w-full max-w-md rounded text-black"
-      />
+          <input
+            type="text"
+            placeholder="CPF (somente números)"
+            value={cpf}
+            onChange={(e) => setCpf(e.target.value)}
+            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
 
-      <input
-        type="date"
-        placeholder="Data de Nascimento"
-        value={dataNascimento}
-        onChange={(e) => setDataNascimento(e.target.value)}
-        className="border border-gray-300 px-3 py-2 mb-5 w-full max-w-md rounded text-black"
-      />
+          <input
+            type="date"
+            placeholder="Data de Nascimento"
+            value={dataNascimento}
+            onChange={(e) => setDataNascimento(e.target.value)}
+            className="w-full p-3 rounded bg-gray-800 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
 
-      <button
-        onClick={validarDados}
-        className="bg-indigo-600 hover:bg-indigo-700 transition text-white px-6 py-2 rounded disabled:opacity-50"
-        disabled={carregando}
-      >
-        {carregando ? "Validando..." : "Validar"}
-      </button>
+          <button
+            onClick={validarDados}
+            disabled={carregando}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 transition font-bold py-3 rounded text-white disabled:opacity-50"
+          >
+            {carregando ? "Validando..." : "Validar"}
+          </button>
+        </div>
 
-      {mensagem && (
-        <div className="mt-6 text-sm text-gray-200 max-w-2xl text-left">{mensagem}</div>
-      )}
+        {mensagem && (
+          <div className="mt-8 bg-gray-950 p-6 rounded-lg border border-gray-700 shadow-lg">
+            {mensagem}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
