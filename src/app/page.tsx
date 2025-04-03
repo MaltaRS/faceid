@@ -62,15 +62,16 @@ export default function ValidadorIdwallPage() {
             🛡️ KYC Básico: {badge(statusKycBasico, statusKycBasico === "Aprovado" ? "bg-green-700" : "bg-yellow-600")}
           </p>
           {segmentos.length > 0 && (
-            <p>
-              🎖️ Segmentos:{" "}
-              {segmentos.map((s: any) => (
-                <span key={s.id} className="inline-block mr-2 px-2 py-1 text-xs rounded bg-indigo-700">
-                  {s.name}
-                </span>
-              ))}
-            </p>
-          )}
+  <p>
+    🎖️ Segmentos:{" "}
+    {segmentos.map((s: { id: string; name: string }) => (
+      <span key={s.id} className="inline-block mr-2 px-2 py-1 text-xs rounded bg-indigo-700">
+        {s.name}
+      </span>
+    ))}
+  </p>
+)}
+
         </div>
       );
 
@@ -115,7 +116,7 @@ export default function ValidadorIdwallPage() {
             <div className="text-sm text-gray-400">
               <p className="font-semibold mb-1">📋 Logs do processo:</p>
               <ul className="list-disc list-inside">
-                {logs.map((log: string, idx: number) => (
+              {logs.map((log: string, idx: number) => (
                   <li key={idx}>{log}</li>
                 ))}
               </ul>
