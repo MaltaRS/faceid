@@ -9,6 +9,7 @@ export default function Page3() {
   const [fotoFrente, setFotoFrente] = useState<string | null>(null);
   const [fotoVerso, setFotoVerso] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
+  const [respostaCompleta, setRespostaCompleta] = useState<any>(null);
   const [etapa, setEtapa] = useState<'frente' | 'verso' | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [cameraAtiva, setCameraAtiva] = useState(false);
@@ -17,7 +18,6 @@ export default function Page3() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Efeito para limpar a câmera ao desmontar
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -41,7 +41,7 @@ export default function Page3() {
         videoRef.current.srcObject = stream;
         setCameraAtiva(true);
         setEtapa('frente');
-        setMensagem('Posicione a frente do RG na câmera');
+        setMensagem('📸 Posicione a frente do RG na câmera');
       }
     } catch (error) {
       console.error('Erro ao acessar câmera:', error);
@@ -64,14 +64,10 @@ export default function Page3() {
       return;
     }
 
-    // Ajusta o canvas para o tamanho do vídeo
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-    
-    // Captura o frame atual
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     
-    // Converte para data URL
     const imageDataUrl = canvas.toDataURL('image/jpeg', 0.8);
     
     if (etapa === 'frente') {
@@ -90,10 +86,7 @@ export default function Page3() {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
       setCameraAtiva(false);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
+      if (videoRef.current) videoRef.current.srcObject = null;
     }
   };
 
@@ -103,6 +96,7 @@ export default function Page3() {
     setFotoVerso(null);
     setEtapa(null);
     setMensagem('');
+    setRespostaCompleta(null);
   };
 
   const enviarDados = async () => {
@@ -128,6 +122,7 @@ export default function Page3() {
       });
 
       const data = await response.json();
+      setRespostaCompleta(data);
 
       if (!response.ok) {
         throw new Error(data.message || 'Erro ao enviar documentos');
@@ -147,8 +142,7 @@ export default function Page3() {
       <div className="max-w-md mx-auto bg-white rounded-lg shadow-md overflow-hidden">
         <div className="p-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-6">Cadastro de RG</h1>
-          
-          {/* Campos do formulário */}
+
           <div className="space-y-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">CPF</label>
@@ -183,7 +177,6 @@ export default function Page3() {
             </div>
           </div>
 
-          {/* Área de captura de fotos */}
           {!fotoFrente || !fotoVerso ? (
             <div className="mb-6">
               <div className="relative bg-black rounded-lg overflow-hidden mb-4">
@@ -246,7 +239,6 @@ export default function Page3() {
             </div>
           )}
 
-          {/* Mensagens de status */}
           {mensagem && (
             <div className={`p-3 rounded-md text-center ${
               mensagem.includes('✅') ? 'bg-green-100 text-green-800' :
@@ -255,6 +247,17 @@ export default function Page3() {
             }`}>
               {mensagem}
             </div>
+          )}
+
+          {respostaCompleta && (
+            <details className="mt-6 bg-gray-100 p-4 rounded text-sm">
+              <summary className="cursor-pointer font-semibold text-gray-700 mb-2">
+                📦 Ver detalhes da resposta
+              </summary>
+              <pre className="mt-2 overflow-auto max-h-96 text-xs text-gray-700">
+                {JSON.stringify(respostaCompleta, null, 2)}
+              </pre>
+            </details>
           )}
         </div>
       </div>

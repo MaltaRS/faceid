@@ -11,42 +11,23 @@ export async function POST(req: NextRequest) {
     // 1. Validação inicial
     log('Iniciando processamento da requisição');
     const requestBody = await req.json();
-    log('Corpo da requisição recebido:', { 
-      camposRecebidos: Object.keys(requestBody),
-      cpf: requestBody.cpf ? '***' + requestBody.cpf.slice(-3) : 'não fornecido',
-      nome: requestBody.nome ? 'fornecido' : 'não fornecido',
-      temFrente: !!requestBody.frente,
-      temVerso: !!requestBody.verso
-    });
-
+    
     const { cpf, nome, dataNascimento, frente, verso } = requestBody;
 
     // 2. Validação dos campos obrigatórios
     if (!cpf || !nome || !dataNascimento || !frente || !verso) {
-      const missingFields = {
-        cpf: !cpf,
-        nome: !nome,
-        dataNascimento: !dataNascimento,
-        frente: !frente,
-        verso: !verso
-      };
-      log('Campos obrigatórios faltando:', missingFields);
-      
       return NextResponse.json(
-        { 
-          success: false,
-          message: "Todos os campos são obrigatórios",
-          camposFaltantes: missingFields
-        },
+        { success: false, message: "Todos os campos são obrigatórios" },
         { status: 400 }
       );
     }
 
+    // 3. Verificação do token (CORREÇÃO PRINCIPAL)
     const token = process.env.IDWALL_API_TOKEN;
     const flowId = process.env.IDWALL_FLOW_ID_RG;
     
     if (!token || !flowId) {
-      log('Erro de configuração - Variáveis de ambiente faltando:', {
+      log('Configuração de ambiente ausente', {
         temToken: !!token,
         temFlowId: !!flowId
       });
@@ -56,10 +37,30 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // 4. Verificar formato do token
+    if (!token.match(/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i)) {
+      log('Token com formato inválido');
+      return NextResponse.json(
+        { success: false, message: "Configuração de token inválida" },
+        { status: 500 }
+      );
+    }
+
     const ref = cpf;
     const dataFormatada = dataNascimento.replace(/-/g, "/");
 
-    // 3. Criação ou verificação do perfil
+    // 5. Configuração dos headers (CORREÇÃO IMPORTANTE)
+   const headers = {
+  "Authorization": token, // <- sem 'Bearer'
+  "Content-Type": "application/json",
+  "Accept": "application/json",
+  "idw-request-id": `req_${Date.now()}`
+};
+
+
+    log('Configuração de headers', { headers: { ...headers, Authorization: 'Bearer ***' } });
+
+    // 6. Criação do perfil
     const profilePayload = {
       ref,
       personal: {
@@ -70,167 +71,94 @@ export async function POST(req: NextRequest) {
       status: 1,
     };
 
-    log('Criando/verificando perfil na IDwall', {
+    log('Criando perfil na IDwall', { 
       endpoint: 'POST /maestro/profile',
       payload: { ...profilePayload, personal: { ...profilePayload.personal, cpfNumber: '***' + cpf.slice(-3) } }
     });
 
     const profileRes = await fetch("https://api-v3.idwall.co/maestro/profile", {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(profilePayload),
     });
 
-    const profileJson = await profileRes.json().catch(() => null);
+    const profileJson = await profileRes.json().catch(() => ({}));
     
-    log('Resposta da criação de perfil:', {
+    log('Resposta da criação de perfil', {
       status: profileRes.status,
-      headers: Object.fromEntries(profileRes.headers.entries()),
       body: profileJson
     });
 
-    // 4. Tratamento do perfil existente
-    if (!profileRes.ok && !profileJson?.message?.includes("already exists")) {
+    // 7. Tratamento de erros de autenticação específico
+    if (profileRes.status === 401) {
+      log('Erro de autenticação - Token inválido ou expirado');
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Erro de autenticação com a IDwall",
+          details: "Token API inválido ou expirado"
+        },
+        { status: 401 }
+      );
+    }
+
+    if (!profileRes.ok && !profileJson.message?.includes("already exists")) {
       throw new Error(`Erro ao criar perfil: ${JSON.stringify(profileJson)}`);
     }
 
-    // 5. Upload dos documentos - Versão com múltiplos endpoints de teste
-    const testUploadEndpoints = async (imageData: string, lado: "FRENTE" | "VERSO") => {
-      const buffer = Buffer.from(imageData.split(",")[1], "base64");
-      const form = new FormData();
-      form.append("ref", ref);
-      form.append("documentType", "RG");
-      form.append("documentSide", lado);
-      form.append("file", new Blob([buffer], { type: "image/jpeg" }), `rg_${lado.toLowerCase()}.jpg`);
-
-      // Lista de endpoints possíveis para teste
-      const endpointsToTest = [
-        "https://api-v3.idwall.co/maestro/documents",
-        "https://api-v3.idwall.co/maestro/profile-documents",
-        "https://api-v3.idwall.co/maestro/profiles/${ref}/documents",
-        "https://api-v3.idwall.co/maestro/profiles/${ref}/rg/upload"
-      ];
-
-      const results = [];
-      
-      for (const endpoint of endpointsToTest) {
-        try {
-          const finalEndpoint = endpoint.replace('${ref}', ref);
-          log(`Tentando upload no endpoint: ${finalEndpoint}`, { lado });
-
-          const startUploadTime = Date.now();
-          const res = await fetch(finalEndpoint, {
-            method: "POST",
-            headers: { 
-              Authorization: `Bearer ${token}`,
-            },
-            body: form,
-          });
-
-          const responseTime = Date.now() - startUploadTime;
-          const responseBody = await res.json().catch(() => null);
-
-          results.push({
-            endpoint: finalEndpoint,
-            status: res.status,
-            responseTime: `${responseTime}ms`,
-            response: responseBody
-          });
-
-          if (res.ok) {
-            log(`Upload bem-sucedido no endpoint: ${finalEndpoint}`, {
-              status: res.status,
-              response: responseBody
-            });
-            return { success: true, endpoint: finalEndpoint, response: responseBody };
-          }
-        } catch (error) {
-          const err = error as Error;
-          results.push({
-            endpoint,
-            error: err.message
-          });
-        }
-      }
-
-      log('Todos os endpoints de upload falharam', { results });
-      throw new Error(`Todos os endpoints de upload falharam para ${lado}. Resultados: ${JSON.stringify(results)}`);
-    };
-
-    log('Iniciando upload de documentos RG...');
-    const uploadResults = await Promise.all([
-      testUploadEndpoints(frente, "FRENTE"),
-      testUploadEndpoints(verso, "VERSO")
-    ]);
-
-    // 6. Disparo do fluxo
-    const flowEndpoint = `https://api-v3.idwall.co/maestro/profile/${ref}/flow/${flowId}`;
-    log('Disparando fluxo de verificação', { endpoint: flowEndpoint });
-
-    const flowRes = await fetch(flowEndpoint, {
-      method: "POST",
-      headers: { 
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    const flowJson = await flowRes.json().catch(() => null);
-    
-    log('Resposta do fluxo de verificação:', {
-      status: flowRes.status,
-      headers: Object.fromEntries(flowRes.headers.entries()),
-      body: flowJson
-    });
-
-    if (!flowRes.ok && !flowJson?.message?.includes("already has same flow running")) {
-      log('Atenção: Fluxo pode não ter sido iniciado corretamente', flowJson);
-    }
-
-    // 7. Resposta de sucesso
-    const totalTime = Date.now() - startTime;
-    log('Processamento concluído com sucesso', { tempoTotal: `${totalTime}ms` });
-
-    return NextResponse.json({
-      success: true,
-      message: "Documentos RG enviados com sucesso",
-      metadata: {
-        tempoProcessamento: `${totalTime}ms`,
-        endpointsUsados: {
-          uploadFrente: uploadResults[0].endpoint,
-          uploadVerso: uploadResults[1].endpoint,
-          fluxo: flowEndpoint
-        }
-      },
-      data: {
-        perfil: ref,
-        documentos: {
-          frente: { status: "enviado" },
-          verso: { status: "enviado" }
-        },
-        fluxo: flowJson
-      }
-    });
-
-  } catch (error: unknown) {
-    const err = error as Error;
-    const errorTime = Date.now() - startTime;
-    
-    log('Erro no processamento:', {
-      message: err.message,
-      stack: err.stack,
-      tempoProcessamento: `${errorTime}ms`
-    });
-    
+     // 8. Upload dos documentos
+     const upload = async (side: "FRONT" | "BACK", image: string) => {
+        const buffer = Buffer.from(image.split(",")[1], "base64");
+        const form = new FormData();
+        form.append("file", new Blob([buffer], { type: "image/jpeg" }), `${side.toLowerCase()}.jpg`);
+        form.append("documentType", "RG");
+        form.append("documentSide", side);
+        form.append("ref", ref);
+  
+        const uploadRes = await fetch("https://api-v3.idwall.co/maestro/documents", {
+          method: "POST",
+          headers: { Authorization: token },
+          body: form
+        });
+  
+        const json = await uploadRes.json().catch(() => ({}));
+        return { status: uploadRes.status, body: json };
+      };
+  
+      log("🔁 Upload das imagens RG");
+      const frenteUpload = await upload("FRONT", frente);
+      const versoUpload = await upload("BACK", verso);
+  
+      // 9. Disparo do fluxo
+      const flowRes = await fetch(`https://api-v3.idwall.co/maestro/profile/${ref}/flow/${flowId}`, {
+        method: "POST",
+        headers: { Authorization: token },
+      });
+      const flowJson = await flowRes.json().catch(() => ({}));
+  
+      // 10. Consulta final dos documentos enviados
+      const consultaRes = await fetch(`https://api-v3.idwall.co/maestro/profile/${ref}`, {
+        method: "GET",
+        headers: { Authorization: token },
+      });
+      const consultaJson = await consultaRes.json().catch(() => ({}));
+  
+      return NextResponse.json({
+        success: true,
+        message: "Documentos enviados e verificação iniciada",
+        profileStatus: profileRes.status,
+        profileJson,
+        frenteUpload,
+        versoUpload,
+        flowStatus: flowRes.status,
+        flowJson,
+        ref,
+        documentos: consultaJson.documents || null
+      });
+  } catch (error) {
+    log('Erro durante o processamento', { error });
     return NextResponse.json(
-      { 
-        success: false,
-        message: "Falha no processamento",
-        error: err.message,
-        tempoProcessamento: `${errorTime}ms`
-      },
+      { success: false, message: "Erro interno do servidor", error: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     );
   }
