@@ -2,8 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const startTime = Date.now();
-  const log = (msg: string, data?: any) =>
+  const log = (msg: string, data?: unknown) =>
     console.log(`[${new Date().toISOString()}] ${msg}`, data || '');
 
   try {

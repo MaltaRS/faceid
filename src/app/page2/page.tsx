@@ -19,8 +19,9 @@ export default function Page2() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-    } catch (error) {
-      setMensagem("❌ Erro ao acessar a câmera.");
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Erro ao acessar a câmera.";
+      setMensagem(`❌ ${errorMessage}`);
     }
   };
 
@@ -65,7 +66,7 @@ export default function Page2() {
         </div>
       );
     } catch (err) {
-      setMensagem(<span className="text-red-500">❌ Erro de rede.</span>);
+      setMensagem(<span className="text-red-500">❌ Erro de rede: {err instanceof Error ? err.message : 'Erro desconhecido'}</span>);
     } finally {
       setCarregando(false);
     }

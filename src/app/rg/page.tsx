@@ -9,7 +9,13 @@ export default function Page3() {
   const [fotoFrente, setFotoFrente] = useState<string | null>(null);
   const [fotoVerso, setFotoVerso] = useState<string | null>(null);
   const [mensagem, setMensagem] = useState('');
-  const [respostaCompleta, setRespostaCompleta] = useState<any>(null);
+  interface ApiResponse {
+    message?: string;
+    success?: boolean;
+    [key: string]: unknown;
+  }
+  
+  const [respostaCompleta, setRespostaCompleta] = useState<ApiResponse | null>(null);
   const [etapa, setEtapa] = useState<'frente' | 'verso' | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [cameraAtiva, setCameraAtiva] = useState(false);

@@ -43,7 +43,11 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(profilePayload),
     });
 
-    const profileJson: { [key: string]: any; message?: string } = await createRes.json();
+    interface ProfileResponse {
+      [key: string]: unknown;
+      message?: string;
+    }
+    const profileJson: ProfileResponse = await createRes.json();
     console.log("📥 Resposta criação perfil:");
     console.log("🔵 Status:", createRes.status);
     console.log("🔵 Headers:", Object.fromEntries(createRes.headers.entries()));

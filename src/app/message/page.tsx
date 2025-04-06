@@ -18,7 +18,19 @@ export default function MessagePage() {
   const [cpfLoading, setCpfLoading] = useState(false)
   const [cpfFound, setCpfFound] = useState(false)
   const [userInfo, setUserInfo] = useState<{ name: string; birthdate: string } | null>(null)
-  const [idwallData, setIdwallData] = useState<any>(null)
+  interface IdwallData {
+    fonteCompleta?: {
+      personal?: Record<string, unknown>;
+    };
+    validacoes: string[];
+    kycAprovado: boolean;
+    statusKycBasico: string;
+    logs: string[];
+    segmentos: Array<{ id: string; name: string }>;
+    perfilCriado: boolean;
+  }
+
+  const [idwallData, setIdwallData] = useState<IdwallData | null>(null)
 
   const chatRef = useRef<HTMLDivElement>(null)
   const emojis = ['😀', '😎', '🔥', '🥰', '💯', '🤖', '🚀', '😈']
@@ -148,7 +160,6 @@ export default function MessagePage() {
     const perfilCriado = idwallData.perfilCriado
     const segmentos = idwallData.segmentos || []
     const fonte = enriched || {}
-    const personal = fonte.personal || {}
 
     const badge = (texto: string, cor: string) => (
       <span className={`inline-block px-2 py-1 text-xs font-semibold rounded-full ${cor}`}>{texto}</span>

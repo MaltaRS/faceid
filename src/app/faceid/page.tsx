@@ -21,7 +21,7 @@ export default function Page2() {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
       }
-    } catch (err) {
+    } catch {
       setMensagem('❌ Erro ao acessar a câmera.');
     }
   };
@@ -67,7 +67,7 @@ export default function Page2() {
 
       const data = await res.json();
       setMensagem(`✅ Resultado: ${data.mensagem || 'Operação concluída.'}`);
-    } catch (error) {
+    } catch {
       setMensagem("❌ Erro ao enviar dados. Verifique sua conexão.");
     } finally {
       setCarregando(false);
