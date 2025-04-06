@@ -15,6 +15,10 @@ export default function MessagePage() {
   const [cpfValid, setCpfValid] = useState(false)
   const [cpfTouched, setCpfTouched] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('')
+  const [cpfLoading, setCpfLoading] = useState(false)
+  const [cpfFound, setCpfFound] = useState(false)
+  const [userInfo, setUserInfo] = useState<{ name: string; birthdate: string } | null>(null)
+
   const chatRef = useRef<HTMLDivElement>(null)
 
   const emojis = ['😀', '😎', '🔥', '🥰', '💯', '🤖', '🚀', '😈']
@@ -62,7 +66,46 @@ export default function MessagePage() {
     setCpf(masked)
     setCpfTouched(true)
     setCpfValid(validateCPF(masked))
+    setCpfFound(false)
+    setUserInfo(null)
+    setPaymentMethod('')
   }
+
+  const handlePaymentSelect = async (method: string) => {
+    setPaymentMethod(method)
+    if (cpfValid) {
+      const rawCpf = cpf.replace(/\D/g, '')
+      console.log('[FRONT] CPF formatado enviado à API:', rawCpf)
+  
+      setCpfLoading(true)
+      try {
+        const res = await fetch('/api/consultar-cpf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cpf: rawCpf }), // envia CPF sem máscara
+        })
+  
+        const data = await res.json()
+        console.log('[FRONT] Resposta da API:', data)
+  
+        if (data.valid) {
+          setUserInfo({ name: data.nome, birthdate: data.nascimento })
+          setCpfFound(true)
+        } else {
+          console.warn('[FRONT] Dados inválidos recebidos:', data)
+          setUserInfo(null)
+          setCpfFound(false)
+        }
+      } catch (err) {
+        console.error('[FRONT] Erro na consulta:', err)
+        setUserInfo(null)
+        setCpfFound(false)
+      } finally {
+        setCpfLoading(false)
+      }
+    }
+  }
+  
 
   const completePayment = () => {
     setShowCpfModal(false)
@@ -74,6 +117,8 @@ export default function MessagePage() {
       setCpfValid(false)
       setCpfTouched(false)
       setPaymentMethod('')
+      setCpfFound(false)
+      setUserInfo(null)
       setShowLoadingModal(false)
     }, 3000)
   }
@@ -199,17 +244,24 @@ export default function MessagePage() {
                 {['PIX', 'Crédito', 'Débito', 'Boleto'].map((method) => (
                   <button
                     key={method}
-                    onClick={() => setPaymentMethod(method)}
+                    onClick={() => handlePaymentSelect(method)}
                     className={`py-2 rounded-lg font-semibold transition ${paymentMethod === method ? 'bg-emerald-600 text-white' : 'bg-gray-100'}`}
                   >
                     {method}
                   </button>
                 ))}
               </div>
+              {cpfLoading && <p className="text-sm text-gray-500">Consultando dados do cidadão...</p>}
+              {cpfFound && userInfo && (
+                <div className="text-left text-sm mt-2 p-2 rounded bg-gray-100 text-black shadow">
+                  <p><strong>Nome:</strong> {userInfo.name}</p>
+                  <p><strong>Nascimento:</strong> {userInfo.birthdate}</p>
+                </div>
+              )}
               <button
                 onClick={completePayment}
-                disabled={!cpfValid || !paymentMethod}
-                className={`w-full py-3 rounded-xl font-bold text-white ${cpfValid && paymentMethod ? 'bg-gradient-to-r from-emerald-500 to-green-700 hover:opacity-90' : 'bg-gray-400 cursor-not-allowed'}`}
+                disabled={!cpfFound || !paymentMethod}
+                className={`w-full py-3 rounded-xl font-bold text-white ${cpfFound && paymentMethod ? 'bg-gradient-to-r from-emerald-500 to-green-700 hover:opacity-90' : 'bg-gray-400 cursor-not-allowed'}`}
               >
                 Pagar
               </button>
